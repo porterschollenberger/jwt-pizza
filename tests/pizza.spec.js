@@ -150,3 +150,55 @@ test('register, view diner dashboard, hit a random page, then logout', async ({ 
   await page.getByRole('link', { name: 'Logout' }).click();
   await expect(page.locator('#navbar-dark')).toContainText('Login');
 });
+
+test('set up franchise with store and then close both', async ({ page }) => {
+  test.slow();
+  
+  await page.goto('/');
+
+  await page.getByRole('link', { name: 'Login' }).click();
+  await page.getByPlaceholder('Email address').fill('a@jwt.com');
+  await page.getByPlaceholder('Email address').press('Tab');
+  await page.getByPlaceholder('Password').fill('admin');
+  await page.getByPlaceholder('Password').press('Enter');
+  await expect(page.getByLabel('Global')).toContainText('常');
+  await page.getByRole('link', { name: 'Admin' }).click();
+  await expect(page.getByRole('main')).toContainText('Keep the dough rolling and the franchises signing up.');
+  await page.getByRole('button', { name: 'Add Franchise' }).click();
+  await page.getByPlaceholder('franchise name').click();
+  await page.getByPlaceholder('franchise name').fill('Test Franchise');
+  await page.getByPlaceholder('franchise name').press('Tab');
+  await page.getByPlaceholder('franchisee admin email').fill('testuser@jwt.com');
+  await page.getByRole('button', { name: 'Create' }).click();
+  await expect(page.getByRole('table')).toContainText('Test Franchise');
+  await page.getByRole('link', { name: 'Logout' }).click();
+
+  await page.getByRole('link', { name: 'Login' }).click();
+  await page.getByPlaceholder('Email address').fill('testuser@jwt.com');
+  await page.getByPlaceholder('Email address').press('Tab');
+  await page.getByPlaceholder('Password').fill('test');
+  await page.getByRole('button', { name: 'Login' }).click();
+  await expect(page.getByLabel('Global')).toContainText('TU');
+  await page.getByLabel('Global').getByRole('link', { name: 'Franchise' }).click();
+  await expect(page.getByRole('main')).toContainText('Everything you need to run an JWT Pizza franchise. Your gateway to success.');
+  await page.getByRole('button', { name: 'Create store' }).click();
+  await page.getByPlaceholder('store name').click();
+  await page.getByPlaceholder('store name').fill('Test Store');
+  await page.getByRole('button', { name: 'Create' }).click();
+  await expect(page.locator('tbody')).toContainText('Test Store');
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(page.getByRole('main')).toContainText('Are you sure you want to close the Test Franchise store Test Store ? This cannot be restored. All outstanding revenue with not be refunded.');
+  await page.getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('link', { name: 'Logout' }).click();
+  
+  await page.getByRole('link', { name: 'Login' }).click();
+  await page.getByPlaceholder('Email address').fill('a@jwt.com');
+  await page.getByPlaceholder('Email address').press('Tab');
+  await page.getByPlaceholder('Password').fill('admin');
+  await page.getByRole('button', { name: 'Login' }).click();
+  await page.getByRole('link', { name: 'Admin' }).click();
+  await expect(page.getByRole('table')).toContainText('Test Franchise');
+  await page.getByRole('row', { name: 'Test Franchise Test User Close' }).getByRole('button').click();
+  await expect(page.getByRole('main')).toContainText('Are you sure you want to close the Test Franchise franchise? This will close all associated stores and cannot be restored. All outstanding revenue with not be refunded.');
+  await page.getByRole('button', { name: 'Close' }).click();
+});
