@@ -106,3 +106,47 @@ test('explore about, history, and franchise while not logged in', async ({ page 
   await expect(page.getByRole('main')).toContainText('So you want a piece of the pie?');
   await expect(page.getByRole('alert')).toContainText('If you are already a franchisee, pleaseloginusing your franchise account');
 })
+
+test('register, view diner dashboard, hit a random page, then logout', async ({ page }) => {
+  await page.route('*/**/api/auth', async (route) => {
+    const method = route.request().method();
+    if (method === 'POST') {
+      const registerReq = { email: 'foobar@jwt.com', password: 'baz' };
+      const registerRes = { user: { id: 3, name: 'Foo Bar', email: 'foobar@jwt.com', roles: [{ role: 'diner' }] }, token: 'abcdef' };
+      expect(route.request().postDataJSON()).toMatchObject(registerReq);
+      await route.fulfill({ json: registerRes });
+    } else if (method === 'DELETE') {
+      const logoutRes = { "message": "logout successful" };
+      await route.fulfill({ json: logoutRes });
+    } else {
+      await route.continue();
+    }
+  });
+
+  await page.route('*/**/api/order', async (route) => {
+    const orderRes = { "dinerId": 3, "orders": [], "page": 1 };
+    expect(route.request().method()).toBe("GET");
+    await route.fulfill(orderRes);
+  });
+
+  await page.goto('/');
+  await expect(page.getByRole('heading')).toContainText('The web\'s best pizza');
+  await expect(page.locator('#navbar-dark')).toContainText('Register');
+  await page.getByRole('link', { name: 'Register' }).click();
+  await page.getByPlaceholder('Full name').fill('Foo Bar');
+  await page.getByPlaceholder('Full name').press('Tab');
+  await page.getByPlaceholder('Email address').fill('foobar@jwt.com');
+  await page.getByPlaceholder('Email address').press('Tab');
+  await page.getByPlaceholder('Password').fill('baz');
+  await page.getByRole('button', { name: 'Register' }).click();
+  await expect(page.getByLabel('Global')).toContainText('FB');
+  await page.getByRole('link', { name: 'FB' }).click();
+  await expect(page.getByRole('heading')).toContainText('Your pizza kitchen');
+  await expect(page.getByRole('main')).toContainText('Foo Bar');
+  await expect(page.getByRole('main')).toContainText('How have you lived this long without having a pizza? Buy one now!');
+  await page.goto('/foo');
+  await expect(page.getByRole('heading')).toContainText('Oops');
+  await expect(page.locator('#navbar-dark')).toContainText('Logout');
+  await page.getByRole('link', { name: 'Logout' }).click();
+  await expect(page.locator('#navbar-dark')).toContainText('Login');
+});
