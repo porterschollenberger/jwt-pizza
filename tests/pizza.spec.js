@@ -92,3 +92,17 @@ test('purchase with login', async ({ page }) => {
   // Check balance
   await expect(page.getByText('0.008')).toBeVisible();
 });
+
+test('explore about, history, and franchise while not logged in', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading')).toContainText('The web\'s best pizza');
+  await page.getByRole('link', { name: 'About' }).click();
+  await expect(page.getByRole('main')).toContainText('The secret sauce');
+  await page.getByRole('link', { name: 'home' }).click();
+  await page.getByRole('link', { name: 'History' }).click();
+  await expect(page.getByRole('heading')).toContainText('Mama Rucci, my my');
+  await page.getByRole('link', { name: 'home' }).click();
+  await page.getByRole('contentinfo').getByRole('link', { name: 'Franchise' }).click();
+  await expect(page.getByRole('main')).toContainText('So you want a piece of the pie?');
+  await expect(page.getByRole('alert')).toContainText('If you are already a franchisee, pleaseloginusing your franchise account');
+})
