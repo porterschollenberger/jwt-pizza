@@ -153,7 +153,227 @@ test('register, view diner dashboard, hit a random page, then logout', async ({ 
 
 test('set up franchise with store and then close both', async ({ page }) => {
   test.slow();
-  
+
+  const USERID = 4;
+  const FRANCHISEID = 14;
+  const STOREID = 11;
+
+  let franchise_exists = false;
+  let admin_finished = false;
+  let store_exists = false;
+
+  await page.route('*/**/api/auth', async (route) => {
+    const method = route.request().method();
+    if (method === 'PUT') {
+      if (admin_finished == true) {
+        const loginReq = { "email": "testuser@jwt.com", "password": "test" };
+        const loginRes = {
+          "user": {
+            "id": 4,
+            "name": "Test User",
+            "email": "testuser@jwt.com",
+            "roles": [
+              {
+                "role": "diner"
+              },
+              {
+                "objectId": 14,
+                "role": "franchisee"
+              }
+            ]
+          },
+          "token": "spoopy"
+        };
+        expect(route.request().method()).toBe('PUT');
+        expect(route.request().postDataJSON()).toMatchObject(loginReq);
+        await route.fulfill({ json: loginRes });
+      } else {
+        const loginReq = { "email": "a@jwt.com", "password": "admin" };
+        const loginRes = {
+          "user": {
+            "id": 1,
+            "name": "常用名字",
+            "email": "a@jwt.com",
+            "roles": [
+              {
+                "role": "admin"
+              }
+            ]
+          },
+          "token": "eepy"
+        };
+        expect(route.request().method()).toBe('PUT');
+        expect(route.request().postDataJSON()).toMatchObject(loginReq);
+        await route.fulfill({ json: loginRes });
+      }
+    } else if (method === 'DELETE') {
+      if (admin_finished === true) {
+        admin_finished = false;
+      } else {
+        admin_finished = true;
+      }
+      const logoutRes = { "message": "logout successful" };
+      await route.fulfill({ json: logoutRes });
+    } else {
+      await route.continue();
+    }
+  });
+
+  await page.route('*/**/api/franchise/14/store/11', async (route) => {
+    const storeRes = { "message": "store deleted" };
+    expect(route.request().method()).toBe("DELETE");
+    await route.fulfill({ json: storeRes });
+  });
+
+  await page.route('*/**/api/franchise/14/store', async (route) => {
+    const storeReq = { "name": "Test Store" };
+    const storeRes = { "id": 11, "franchiseId": 14, "name": "Test Store" };
+    expect(route.request().method()).toBe("POST");
+    expect(route.request().postDataJSON()).toMatchObject(storeReq);
+    await route.fulfill({ json: storeRes });
+    store_exists = true;
+  });
+
+  await page.route('*/**/api/franchise/14', async (route) => {
+    const storeRes = { "message": "franchise deleted" };
+    expect(route.request().method()).toBe("DELETE");
+    await route.fulfill({ json: storeRes });
+  });
+
+  await page.route('*/**/api/franchise/4', async (route) => {
+    let storeRes = [
+      {
+        "id": 14,
+        "name": "Test Franchise",
+        "admins": [
+          {
+            "id": 4,
+            "name": "Test User",
+            "email": "testuser@jwt.com"
+          }
+        ],
+        "stores": []
+      }
+    ];
+    if (store_exists === true) {
+      storeRes = [
+        {
+          "id": 14,
+          "name": "Test Franchise",
+          "admins": [
+            {
+              "id": 4,
+              "name": "Test User",
+              "email": "testuser@jwt.com"
+            }
+          ],
+          "stores": [
+            {
+              "id": 11,
+              "name": "Test Store",
+              "totalRevenue": 0
+            }
+          ]
+        }
+      ]; 
+    }
+    expect(route.request().method()).toBe("GET");
+    await route.fulfill({ json: storeRes });
+  });
+
+  await page.route('*/**/api/franchise', async (route) => {
+    const method = route.request().method();
+    if (method == "GET") {
+      if (franchise_exists) {
+        const franchiseRes = [
+          {
+            "id": 1,
+            "name": "pizzaPocket",
+            "admins": [
+              {
+                "id": 3,
+                "name": "pizza franchisee",
+                "email": "f@jwt.com"
+              }
+            ],
+            "stores": [
+              {
+                "id": 1,
+                "name": "SLC",
+                "totalRevenue": 0
+              }
+            ]
+          },
+          {
+            "id": 14,
+            "name": "Test Franchise",
+            "admins": [
+              {
+                "id": 4,
+                "name": "Test User",
+                "email": "testuser@jwt.com"
+              }
+            ],
+            "stores": []
+          }
+        ];
+        expect(route.request().method()).toBe("GET");
+        await route.fulfill({ json: franchiseRes });
+      } else {
+        const franchiseRes = [
+          {
+            "id": 1,
+            "name": "pizzaPocket",
+            "admins": [
+              {
+                "id": 3,
+                "name": "pizza franchisee",
+                "email": "f@jwt.com"
+              }
+            ],
+            "stores": [
+              {
+                "id": 1,
+                "name": "SLC",
+                "totalRevenue": 0
+              }
+            ]
+          }
+        ];
+        expect(route.request().method()).toBe("GET");
+        await route.fulfill({ json: franchiseRes });
+      }
+    } else if (method == "POST") {
+      franchise_exists = true;
+      const franchiseReq = {
+        "stores": [],
+        "name": "Test Franchise",
+        "admins": [
+          {
+            "email": "testuser@jwt.com"
+          }
+        ]
+      };
+      const franchiseRes = {
+        "stores": [],
+        "name": "Test Franchise",
+        "admins": [
+          {
+            "email": "testuser@jwt.com",
+            "id": 4,
+            "name": "Test User"
+          }
+        ],
+        "id": 14
+      };
+      expect(route.request().method()).toBe('POST');
+      expect(route.request().postDataJSON()).toMatchObject(franchiseReq);
+      await route.fulfill({ json: franchiseRes }); 
+    } else {
+      await route.continue();
+    }
+  });
+
   await page.goto('/');
 
   await page.getByRole('link', { name: 'Login' }).click();
